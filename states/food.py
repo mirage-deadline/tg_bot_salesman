@@ -7,5 +7,4 @@ class States(enum.Enum):
     CHOOSE_SIZE = 1
     CHOOSE_PAYMENT = 2
     MAKE_SURE = 3
-    DONE_ORDER = 4
-    CANCEL = 5
+    CANCEL = 4

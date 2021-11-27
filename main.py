@@ -1,78 +1,85 @@
 import telebot
-from telebot import types
-from telebot.handler_backends import MemoryHandlerBackend
 from data import config
-from states.food import States
-from transitions import Machine
 from keybords.default import buttons
+from states.food import States
+from telebot import types
+from utils import state_actions as SA
 from utils.set_bot_commands import set_default_commands
 
 
 bot = telebot.TeleBot(config.TOKEN)
 set_default_commands(bot)
-transitions = [
-    ['pizza', States.DIALOG_START, States.CHOOSE_SIZE],
-    ['size', States.CHOOSE_SIZE, States.CHOOSE_PAYMENT],
-    ['get_back', States.CHOOSE_PAYMENT, States.CHOOSE_SIZE],
-    ['payment', States.CHOOSE_PAYMENT, States.MAKE_SURE],
-    ['answer_y', States.MAKE_SURE, States.DONE_ORDER],
-    ['answer_n', States.DONE_ORDER, States.CHOOSE_SIZE],
-    ['cancel', '*', States.DIALOG_START]]
-m = Machine(states=States, transitions=transitions, initial=States.DIALOG_START)
 order = {}
 
 
 @bot.message_handler(func= lambda message: any([message.text == '/buy_pizza', message.text == 'Заказать пиццу']))
-def greeting(message):
+def greeting(message: types.Message):
+    """
+    Обработка первого хэндлера и выдача ФСМ для дальнейшей обработки
+    """
+    SA.create_base_state(message.from_user.id)
     bot.send_message(message.chat.id, text='Какую пиццу Вы хотите? Большую или маленькую?', reply_markup= buttons.size_keyboard())
-    m.pizza()
+    SA.add_state(message.from_user.id, States.DIALOG_START, 'pizza')
 
-@bot.message_handler(func=lambda message: m.state.value == States.CHOOSE_SIZE.value)
-def get_ans(message):
 
+@bot.message_handler(func=lambda message: SA.get_state(message.from_user.id) == States.CHOOSE_SIZE.value)
+def get_ans(message: types.Message):
+    """
+    Проверяем валидность полученного сообщения по размеру пиццы и в случае корректности направляем на хэндлер выбора оплаты
+    """
     if message.text.lower() in ['большую', 'маленькую']:
-        m.size()
+        SA.add_state(message.from_user.id, States.CHOOSE_SIZE, 'size')        
         bot.send_message(message.chat.id, 'Как будете платить? Возможна оплата картой и наличкой.', reply_markup=buttons.pay_keybord())
         order['size'] = message.text.lower()
     elif message.text == '/cancel':
         bot.send_message(message.chat.id, text='Вы вышли в главное меню', reply_markup=None)
-        m.cancel()
+        SA.add_state(message.from_user.id, States.CHOOSE_SIZE, 'cancel')
     else: 
         bot.send_message(message.chat.id, text='Попробуйте ввести из выбранного. Вернуться в главное меню можно по команде /cancel')
         return    
 
 
-@bot.message_handler(func=lambda message: m.state == States.CHOOSE_PAYMENT)
-def payment(message):
-    
+@bot.message_handler(func=lambda message: SA.get_state(message.from_user.id) == States.CHOOSE_PAYMENT.value)
+def payment(message: types.Message):
+    """
+    Проверка правильности созданного заказа
+    """
     if message.text.lower() in ['картой', 'наличкой']:
-        m.payment()
+        SA.add_state(message.from_user.id, States.CHOOSE_PAYMENT, 'payment')        
         order['pay_method'] = message.text.lower()
         bot.send_message(message.chat.id, text= 'Вы хотите {} пиццу, оплата - {}?'.format(order['size'], order['pay_method']), reply_markup=buttons.confirm_keybord())
     elif message.text == '/cancel':
         bot.send_message(message.chat.id, text='Вы вышли в главное меню')
-        m.cancel()
+        SA.add_state(message.from_user.id, States.CHOOSE_PAYMENT, 'cancel')
     else: 
         bot.send_message(message.chat.id, text='Возможна оплата картой и наличкой. Вернуться в главное меню можно по команде /cancel')
         return
     
 
-@bot.message_handler(func=lambda message: m.state == States.MAKE_SURE)
-def confirm_order(message):
+@bot.message_handler(func=lambda message: SA.get_state(message.from_user.id) == States.MAKE_SURE.value)
+def confirm_order(message: types.Message):
+    """
+    Дальнейшие действия по отправке и внесению заказа куда-либо могут быть реалзованы после текущего состояния обработки заказа
+    """
     if message.text.lower() == 'да':
-        m.cancel()
+        SA.add_state(message.from_user.id, States.MAKE_SURE, 'cancel')
         bot.send_message(message.chat.id, text='Спасибо за заказ', reply_markup=buttons.bot_info())
     elif message.text.lower() == '/cancel' or 'нет' or 'В главное меню':
         bot.send_message(message.chat.id, text='Выход в главное меню. Вы можете собрать заказ с самого начала!', reply_markup=buttons.bot_info())
-        m.cancel()
+        SA.add_state(message.from_user.id, States.MAKE_SURE, 'cancel')
     else: 
         bot.send_message(message.chat.id, text='Проверьте правильность ввоода\
             Возможна оплата картой и наличкой. Вернуться в главное меню можно по команде /cancel')
         return
 
 @bot.message_handler(func= lambda message: any([message.text == '/help', message.text == 'Возможности бота']))
-def greetings(message):
+def greetings(message: types.Message):
     bot.send_message(message.chat.id, 'В данном боте Вы можете заказать самую лучшую пиццу, просто нажимаете /buy_pizza и выбираете')
+
+
+@bot.message_handler(commands=['start'])
+def say_hello(message: types.Message):
+    bot.send_message(message.chat.id, 'Бот для заказа пиццы. Для подробностей нажимайте /help')
     
 
 bot.infinity_polling()

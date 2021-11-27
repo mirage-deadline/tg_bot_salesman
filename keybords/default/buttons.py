@@ -2,8 +2,8 @@ from telebot import types
 
 
 def size_keyboard():
-    markup = types.ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
-    buttons = types.KeyboardButton('Маленькую'), types.KeyboardButton('Большую'), types.KeyboardButton('В главное меню')
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    buttons = types.KeyboardButton('Маленькую'), types.KeyboardButton('Большую')
     markup.add(*buttons)
     return markup
 

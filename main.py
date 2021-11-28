@@ -30,7 +30,7 @@ def get_ans(message: types.Message):
     if message.text.lower() in ['большую', 'маленькую']:
         SA.add_state(message.from_user.id, States.CHOOSE_SIZE, 'size')        
         bot.send_message(message.chat.id, 'Как будете платить? Возможна оплата картой и наличкой.', reply_markup=buttons.pay_keybord())
-        order['size'] = message.text.lower()
+        order[f'{message.from_user.id}_size'] = message.text.lower()
     elif message.text == '/cancel':
         bot.send_message(message.chat.id, text='Вы вышли в главное меню', reply_markup=None)
         SA.add_state(message.from_user.id, States.CHOOSE_SIZE, 'cancel')
@@ -44,10 +44,11 @@ def payment(message: types.Message):
     """
     Проверка правильности созданного заказа
     """
+    msg_id = message.from_user.id
     if message.text.lower() in ['картой', 'наличкой']:
-        SA.add_state(message.from_user.id, States.CHOOSE_PAYMENT, 'payment')        
-        order['pay_method'] = message.text.lower()
-        bot.send_message(message.chat.id, text= 'Вы хотите {} пиццу, оплата - {}?'.format(order['size'], order['pay_method']), reply_markup=buttons.confirm_keybord())
+        SA.add_state(msg_id, States.CHOOSE_PAYMENT, 'payment')        
+        order[f'{message.from_user.id}_pay_method'] = message.text.lower()
+        bot.send_message(message.chat.id, text= 'Вы хотите {} пиццу, оплата - {}?'.format(order[f'{msg_id}_size'], order[f'{msg_id}_pay_method']), reply_markup=buttons.confirm_keybord())
     elif message.text == '/cancel':
         bot.send_message(message.chat.id, text='Вы вышли в главное меню')
         SA.add_state(message.from_user.id, States.CHOOSE_PAYMENT, 'cancel')
